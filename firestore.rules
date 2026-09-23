@@ -1,59 +1,49 @@
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
+{
+  "rules": {
+    "numbers": {
+      "$n": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((!data.exists() && newData.child('uid').val() == auth.uid) || (data.child('uid').val() == auth.uid && newData.child('uid').val() == data.child('uid').val()) || (newData.child('uid').val() == auth.uid && root.child('claims').child($n).child('uid').val() == auth.uid && root.child('claims').child($n).child('hash').val() == root.child('secrets').child($n).child('hash').val()))",
 
-    function signed() { return request.auth != null; }
-    function owns(n) {
-      return signed() &&
-        get(/databases/$(database)/documents/numbers/$(n)).data.uid == request.auth.uid;
-    }
+        "contacts": {
+          "$c": {
+            ".read": "auth != null && root.child('numbers').child($n).child('uid').val() == auth.uid",
+            ".write": "auth != null && root.child('numbers').child($n).child('uid').val() == auth.uid"
+          }
+        },
 
-    // Perfil público de cada número (se busca por número para abrir un chat)
-    match /numbers/{n} {
-      allow read: if signed();
-      allow create: if signed() && request.resource.data.uid == request.auth.uid;
-      // Dueño actual, o quien probó el código de recuperación (claims)
-      allow update: if signed() && (
-        (resource.data.uid == request.auth.uid && request.resource.data.uid == resource.data.uid) ||
-        (request.resource.data.uid == request.auth.uid &&
-          exists(/databases/$(database)/documents/claims/$(n)) &&
-          get(/databases/$(database)/documents/claims/$(n)).data.uid == request.auth.uid)
-      );
-
-      // Contactos: solo el dueño
-      match /contacts/{c} {
-        allow read, write: if owns(n);
+        "chats": {
+          "$p": {
+            ".read": "auth != null && (root.child('numbers').child($n).child('uid').val() == auth.uid || root.child('numbers').child($p).child('uid').val() == auth.uid)",
+            ".write": "auth != null && (root.child('numbers').child($n).child('uid').val() == auth.uid || root.child('numbers').child($p).child('uid').val() == auth.uid)"
+          }
+        }
       }
+    },
 
-      // Lista de chats: el dueño, o quien chatea con él (para actualizar el último mensaje)
-      match /chats/{p} {
-        allow read, delete: if owns(n);
-        allow create, update: if owns(n) || owns(p);
+    "secrets": {
+      "$n": {
+        ".read": false,
+        ".write": "auth != null && !data.exists() && root.child('numbers').child($n).child('uid').val() == auth.uid"
       }
-    }
+    },
 
-    // Hash del código de recuperación: nadie lo lee desde el cliente
-    match /secrets/{n} {
-      allow create: if signed() && !exists(/databases/$(database)/documents/secrets/$(n)) &&
-        getAfter(/databases/$(database)/documents/numbers/$(n)).data.uid == request.auth.uid;
-      allow read, update, delete: if false;
-    }
+    "claims": {
+      "$n": {
+        ".read": "auth != null && data.child('uid').val() == auth.uid",
+        ".write": "auth != null && newData.child('uid').val() == auth.uid && newData.child('hash').val() == root.child('secrets').child($n).child('hash').val()"
+      }
+    },
 
-    // Reclamar un número: solo si el hash coincide con el guardado en secrets
-    match /claims/{n} {
-      allow read: if signed() && resource.data.uid == request.auth.uid;
-      allow write: if signed() && request.resource.data.uid == request.auth.uid &&
-        request.resource.data.hash == get(/databases/$(database)/documents/secrets/$(n)).data.hash;
-    }
-
-    // Mensajes: el id del chat es "numeroA_numeroB" y solo esos dos números acceden
-    match /chats/{cid}/msgs/{mid} {
-      allow read: if owns(cid.split('_')[0]) || owns(cid.split('_')[1]);
-      allow create: if owns(request.resource.data.from) &&
-        (cid.split('_')[0] == request.resource.data.from || cid.split('_')[1] == request.resource.data.from);
-      // Solo se puede cambiar el estado (✓ → ✓✓ azul)
-      allow update: if (owns(cid.split('_')[0]) || owns(cid.split('_')[1])) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+    "chats": {
+      "$cid": {
+        "msgs": {
+          "$mid": {
+            ".read": "auth != null && (root.child('numbers').child(data.child('from').val()).child('uid').val() == auth.uid || root.child('numbers').child(data.child('to').val()).child('uid').val() == auth.uid)",
+            ".write": "auth != null && ((!data.exists() && root.child('numbers').child(newData.child('from').val()).child('uid').val() == auth.uid) || (data.exists() && root.child('numbers').child(data.child('from').val()).child('uid').val() == auth.uid && newData.child('from').val() == data.child('from').val() && newData.child('to').val() == data.child('to').val() && newData.child('text').val() == data.child('text').val()))"
+          }
+        }
+      }
     }
   }
 }
