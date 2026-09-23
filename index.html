@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>WhatsApp · Cursed Era III</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTQiIGZpbGw9IiMwYjE0MWEiLz48cGF0aCBkPSJNMTQgMThoMzZhNCA0IDAgMCAxIDQgNHYxNmE0IDQgMCAwIDEtNCA0SDI3bC05LjUgOHYtOEgxNGE0IDQgMCAwIDEtNC00VjIyYTQgNCAwIDAgMSA0LTR6IiBmaWxsPSIjMDBhODg0Ii8+PC9zdmc+">
 <style>
 :root{--bg:#0b141a;--p:#111b21;--p2:#202c33;--out:#005c4b;--ac:#00a884;--t:#e9edef;--t2:#8696a0;--ln:#222d34;--bl:#53bdeb}
 *{box-sizing:border-box;margin:0}
@@ -52,6 +53,15 @@ form.send textarea{flex:1;resize:none;max-height:120px;background:#2a3942;color:
 .card a{color:var(--ac);cursor:pointer;text-align:center;font-size:14px}
 .err{color:#ff8a80;font-size:13px;min-height:0}
 .code{font:700 30px/1.2 ui-monospace,Menlo,Consolas,monospace;text-align:center;letter-spacing:3px;background:#2a3942;border-radius:10px;padding:14px;user-select:all}
+.flagimg{width:22px;height:16px;object-fit:cover;border-radius:2px;vertical-align:-3px;box-shadow:0 0 0 1px #ffffff22;background:#2a3942}
+.cpick{width:100%;display:flex;align-items:center;gap:8px;background:#2a3942;color:var(--t);border:0;border-radius:8px;padding:11px 12px;font:inherit;text-align:left;cursor:pointer}
+.cpick span{flex:1}
+.clist{max-height:220px;overflow-y:auto;background:#2a3942;border-radius:8px;margin-top:-4px}
+.citem{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer}
+.citem:hover{background:#ffffff14}
+.pav{width:72px;height:72px;flex:none}
+.pav .av{width:72px;height:72px;font-size:26px}
+label.btn{display:inline-block}
 #back{display:none}
 @media(max-width:760px){.side{width:100%;border:0}.main{display:none}.app.open .side{display:none}.app.open .main{display:flex}#back{display:block}#msgs{padding:12px 10px}}
 </style>
@@ -74,16 +84,16 @@ const firebaseConfig={
 };
 
 const C={
-JP:{n:'Japón',f:'🇯🇵',d:'81',p:['90','80','70'],l:10,t:'## #### ####'},
-MX:{n:'México',f:'🇲🇽',d:'52',p:['55','33','81'],l:10,t:'## #### ####'},
-AR:{n:'Argentina',f:'🇦🇷',d:'54',p:['911'],l:11,t:'# ## #### ####'},
-ES:{n:'España',f:'🇪🇸',d:'34',p:['6','7'],l:9,t:'### ### ###'},
-US:{n:'Estados Unidos',f:'🇺🇸',d:'1',p:['212','310','415','305'],l:10,t:'(###) ###-####'},
-KR:{n:'Corea del Sur',f:'🇰🇷',d:'82',p:['10'],l:10,t:'## #### ####'},
-BR:{n:'Brasil',f:'🇧🇷',d:'55',p:['119','219'],l:11,t:'## ##### ####'},
-CO:{n:'Colombia',f:'🇨🇴',d:'57',p:['3'],l:10,t:'### ### ####'},
-CL:{n:'Chile',f:'🇨🇱',d:'56',p:['9'],l:9,t:'# #### ####'},
-PE:{n:'Perú',f:'🇵🇪',d:'51',p:['9'],l:9,t:'### ### ###'}};
+JP:{n:'Japón',f:'jp',d:'81',p:['90','80','70'],l:10,t:'## #### ####'},
+MX:{n:'México',f:'mx',d:'52',p:['55','33','81'],l:10,t:'## #### ####'},
+AR:{n:'Argentina',f:'ar',d:'54',p:['911'],l:11,t:'# ## #### ####'},
+ES:{n:'España',f:'es',d:'34',p:['6','7'],l:9,t:'### ### ###'},
+US:{n:'Estados Unidos',f:'us',d:'1',p:['212','310','415','305'],l:10,t:'(###) ###-####'},
+KR:{n:'Corea del Sur',f:'kr',d:'82',p:['10'],l:10,t:'## #### ####'},
+BR:{n:'Brasil',f:'br',d:'55',p:['119','219'],l:11,t:'## ##### ####'},
+CO:{n:'Colombia',f:'co',d:'57',p:['3'],l:10,t:'### ### ####'},
+CL:{n:'Chile',f:'cl',d:'56',p:['9'],l:9,t:'# #### ####'},
+PE:{n:'Perú',f:'pe',d:'51',p:['9'],l:9,t:'### ### ###'}};
 
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -92,12 +102,30 @@ const rnd=n=>Array.from({length:n},()=>Math.floor(Math.random()*10)).join('');
 const gen=c=>{const p=pick(c.p);return p+rnd(c.l-p.length)};
 const fmt=(n,t)=>{let i=0;return t.replace(/#/g,()=>n[i++]??'')+n.slice(i)};
 const hue=s=>[...s].reduce((a,c)=>a*31+c.charCodeAt(0),7)%360;
-const av=(id,name)=>{const i=(name||'?').trim()[0]||'?';return`<div class="av" style="background:hsl(${hue(id)} 40% 36%)">${esc(i.toUpperCase())}</div>`};
+const flag=iso=>`<img class="flagimg" src="https://flagcdn.com/${iso}.svg" alt="" loading="lazy">`;
+const av=(id,name,photo)=>{
+  if(photo)return`<div class="av" style="padding:0;overflow:hidden"><img src="${photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"></div>`;
+  const i=(name||'?').trim()[0]||'?';return`<div class="av" style="background:hsl(${hue(id)} 40% 36%)">${esc(i.toUpperCase())}</div>`
+};
 const hm=t=>t&&t.toDate?t.toDate().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}):'';
 const nc=c=>c.toUpperCase().replace(/[^A-Z0-9]/g,'');
 const AL='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 async function sha(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
 function modal(h){const o=document.createElement('div');o.className='ov';o.innerHTML=`<div class="card">${h}</div>`;o.addEventListener('mousedown',e=>{if(e.target===o)o.remove()});document.body.appendChild(o);return o}
+function toAvatar(file){
+  return new Promise((res,rej)=>{
+    const img=new Image(),url=URL.createObjectURL(file);
+    img.onload=()=>{
+      const s=160,c=document.createElement('canvas');c.width=s;c.height=s;
+      const ctx=c.getContext('2d'),m=Math.min(img.width,img.height),sx=(img.width-m)/2,sy=(img.height-m)/2;
+      ctx.drawImage(img,sx,sy,m,m,0,0,s,s);
+      URL.revokeObjectURL(url);
+      res(c.toDataURL('image/jpeg',0.82));
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('img'))};
+    img.src=url;
+  });
+}
 
 if(firebaseConfig.apiKey.startsWith('TU_')){
   $('app').innerHTML='<div class="ov"><div class="card"><h2>Falta configurar Firebase</h2><p>Abrí <b>index.html</b> y reemplazá los datos de <code>firebaseConfig</code> por los de tu proyecto (Firebase → Configuración del proyecto → Tus apps → Web).</p></div></div>';
@@ -133,16 +161,28 @@ async function crear(name,cc,status){
 function welcome(mode){
   const cr=mode==='c';
   $('app').innerHTML=`<div class="ov" style="position:static;height:100%"><div class="card"><h2>📱 WhatsApp</h2><small>Cursed Era III · simulación in character</small>`+(cr
-  ?`<input id="wn" maxlength="30" placeholder="Tu nombre"><select id="wc">${Object.entries(C).map(([k,c])=>`<option value="${k}"${k==='JP'?' selected':''}>${c.f} ${c.n} (+${c.d})</option>`).join('')}</select><input id="ws" maxlength="60" placeholder="Estado (opcional)"><p class="err" id="we"></p><button class="btn" id="wg">Crear mi número</button><a id="sw">¿Ya tenías un número? Recuperarlo</a>`
+  ?`<input id="wn" maxlength="30" placeholder="Tu nombre">
+    <button type="button" class="cpick" id="wc" data-v="JP">${flag('jp')}<span id="wcn">Japón (+81)</span><span>▾</span></button>
+    <div class="clist" id="wcl" hidden>${Object.entries(C).map(([k,c])=>`<div class="citem" data-k="${k}">${flag(c.f)}<span>${esc(c.n)} (+${c.d})</span></div>`).join('')}</div>
+    <input id="ws" maxlength="60" placeholder="Estado (opcional)"><p class="err" id="we"></p><button class="btn" id="wg">Crear mi número</button><a id="sw">¿Ya tenías un número? Recuperarlo</a>`
   :`<input id="rn" placeholder="Tu número (con código de país)" inputmode="tel"><input id="rc" placeholder="Código de recuperación"><p class="err" id="we"></p><button class="btn" id="wg">Recuperar mi número</button><a id="sw">Crear un número nuevo</a>`)+`</div></div>`;
   $('sw').onclick=()=>welcome(cr?'r':'c');
+  if(cr){
+    $('wc').onclick=()=>{$('wcl').hidden=!$('wcl').hidden};
+    $('wcl').onclick=e=>{
+      const it=e.target.closest('.citem');if(!it)return;
+      const k=it.dataset.k;$('wc').dataset.v=k;
+      $('wc').innerHTML=`${flag(C[k].f)}<span id="wcn">${esc(C[k].n)} (+${C[k].d})</span><span>▾</span>`;
+      $('wcl').hidden=true;
+    };
+  }
   $('wg').onclick=async()=>{
     const err=$('we');err.textContent='';$('wg').disabled=true;
     try{
       if(cr){
         const name=$('wn').value.trim();
         if(!name){err.textContent='Escribí un nombre.';$('wg').disabled=false;return}
-        const code=await crear(name,$('wc').value,$('ws').value.trim()||'Disponible');
+        const code=await crear(name,$('wc').dataset.v,$('ws').value.trim()||'Disponible');
         const m=modal(`<h3>Tu código de recuperación</h3><div class="code">${code.slice(0,4)}-${code.slice(4)}</div><p>Guardalo ahora: no se vuelve a mostrar. Si perdés el acceso desde este navegador, con tu número y este código recuperás todos tus chats.</p><button class="btn" id="cg">Ya lo guardé</button>`);
         m.querySelector('#cg').onclick=()=>{m.remove();main()};
       }else{
@@ -168,12 +208,12 @@ function main(){
 }
 
 const nameOf=id=>contacts[id]?.alias||peers[id]?.name||'+'+id;
-function renderMe(){$('me').innerHTML=av(me.id,me.name);$('mn').textContent=me.name;$('mnum').textContent=me.disp}
+function renderMe(){$('me').innerHTML=av(me.id,me.name,me.photo);$('mn').textContent=me.name;$('mnum').textContent=me.disp}
 async function loadPeer(id){if(peers[id]!==undefined)return;peers[id]=null;const s=await getDoc(doc(db,'numbers',id));peers[id]=s.exists()?s.data():null;renderList();renderHead()}
 function renderList(){
-  $('list').innerHTML=chats.length?chats.map(c=>`<div class="it${c.id===cur?' on':''}" tabindex="0" data-a="open" data-p="${c.id}">${av(c.id,nameOf(c.id))}<div class="mid"><b>${esc(nameOf(c.id))}</b><small>${esc(c.last)}</small></div><div class="rt"><small>${hm(c.lastAt)}</small>${c.unread>0&&c.id!==cur?`<i>${c.unread}</i>`:''}</div></div>`).join(''):'<p class="hint">Todavía no tenés chats.<br>Tocá ＋ y escribí el número de otra persona.</p>';
+  $('list').innerHTML=chats.length?chats.map(c=>`<div class="it${c.id===cur?' on':''}" tabindex="0" data-a="open" data-p="${c.id}">${av(c.id,nameOf(c.id),peers[c.id]?.photo)}<div class="mid"><b>${esc(nameOf(c.id))}</b><small>${esc(c.last)}</small></div><div class="rt"><small>${hm(c.lastAt)}</small>${c.unread>0&&c.id!==cur?`<i>${c.unread}</i>`:''}</div></div>`).join(''):'<p class="hint">Todavía no tenés chats.<br>Tocá ＋ y escribí el número de otra persona.</p>';
 }
-function renderHead(){if(!cur)return;$('hav').innerHTML=av(cur,nameOf(cur));$('hn').textContent=nameOf(cur);$('hs').textContent=peers[cur]?peers[cur].status||'':'+'+cur}
+function renderHead(){if(!cur)return;$('hav').innerHTML=av(cur,nameOf(cur),peers[cur]?.photo);$('hn').textContent=nameOf(cur);$('hs').textContent=peers[cur]?peers[cur].status||'':'+'+cur}
 
 function open(p){
   cur=p;unsub&&unsub();loadPeer(p);
@@ -202,7 +242,8 @@ async function enviar(){
 
 function newChat(){
   const cs=Object.entries(contacts);
-  const m=modal(`<h3>Nuevo chat</h3><input id="nn" placeholder="Número (ej. +81 90 1234 5678)" inputmode="tel"><input id="na" placeholder="Guardar como (opcional)" maxlength="30"><p class="err" id="ne"></p><button class="btn" id="ng">Abrir chat</button>${cs.length?'<h3>Contactos</h3>'+cs.map(([id,c])=>`<div class="it" tabindex="0" data-a="open" data-p="${id}">${av(id,c.alias)}<div class="mid"><b>${esc(c.alias)}</b><small>+${id}</small></div></div>`).join(''):''}`);
+  const m=modal(`<h3>Nuevo chat</h3><input id="nn" placeholder="Número (ej. +81 90 1234 5678)" inputmode="tel"><input id="na" placeholder="Guardar como (opcional)" maxlength="30"><p class="err" id="ne"></p><button class="btn" id="ng">Abrir chat</button>${cs.length?'<h3>Contactos</h3>'+cs.map(([id,c])=>`<div class="it" tabindex="0" data-a="open" data-p="${id}">${av(id,c.alias,peers[id]?.photo)}<div class="mid"><b>${esc(c.alias)}</b><small>+${id}</small></div></div>`).join(''):''}`);
+  cs.forEach(([id])=>loadPeer(id));
   m.querySelector('#nn').focus();
   m.querySelector('#ng').onclick=async()=>{
     const id=m.querySelector('#nn').value.replace(/\D/g,''),err=m.querySelector('#ne');
@@ -219,15 +260,29 @@ function newChat(){
 }
 
 function perfil(){
-  const m=modal(`<h3>Mi perfil</h3><small>Tu número (compartilo para que te escriban)</small><div class="code" style="font-size:20px" id="pn">${esc(me.disp)}</div><button class="btn" id="pc">Copiar número</button><input id="pnm" maxlength="30" value="${esc(me.name)}" placeholder="Nombre"><input id="pst" maxlength="60" value="${esc(me.status)}" placeholder="Estado"><button class="btn" id="ps">Guardar cambios</button>`);
+  const m=modal(`<h3>Mi perfil</h3><small>Tu número (compartilo para que te escriban)</small><div class="code" style="font-size:20px" id="pn">${esc(me.disp)}</div><button class="btn" id="pc">Copiar número</button>
+  <div style="display:flex;align-items:center;gap:14px">
+    <div class="pav" id="pav">${av(me.id,me.name,me.photo)}</div>
+    <label class="btn" for="pf">Cambiar foto</label>
+    <input type="file" id="pf" accept="image/*" style="display:none">
+  </div>
+  <input id="pnm" maxlength="30" value="${esc(me.name)}" placeholder="Nombre"><input id="pst" maxlength="60" value="${esc(me.status)}" placeholder="Estado"><p class="err" id="pe"></p><button class="btn" id="ps">Guardar cambios</button>`);
+  let newPhoto=me.photo||null;
   m.querySelector('#pc').onclick=()=>{navigator.clipboard?.writeText(me.disp);m.querySelector('#pc').textContent='Copiado'};
+  m.querySelector('#pf').onchange=async e=>{
+    const f=e.target.files[0];if(!f)return;
+    try{newPhoto=await toAvatar(f);m.querySelector('#pav').innerHTML=av(me.id,me.name,newPhoto)}
+    catch(err){console.error(err);m.querySelector('#pe').textContent='No se pudo leer esa imagen.'}
+  };
   m.querySelector('#ps').onclick=async()=>{
     const name=m.querySelector('#pnm').value.trim()||me.name,status=m.querySelector('#pst').value.trim();
-    await updateDoc(doc(db,'numbers',me.id),{name,status});me={...me,name,status};renderMe();m.remove();
+    const patch={name,status};if(newPhoto!==(me.photo||null))patch.photo=newPhoto;
+    await updateDoc(doc(db,'numbers',me.id),patch);me={...me,...patch};renderMe();m.remove();
   };
 }
 
 document.addEventListener('click',e=>{
+  const wcl=$('wcl');if(wcl&&!wcl.hidden&&!e.target.closest('#wcl')&&!e.target.closest('#wc'))wcl.hidden=true;
   const t=e.target.closest('[data-a]');if(!t)return;
   const a=t.dataset.a;
   if(a==='new')newChat();
