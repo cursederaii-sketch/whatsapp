@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WhatsApp · Cursed Era III</title>
+<style>
+:root{--bg:#0b141a;--p:#111b21;--p2:#202c33;--out:#005c4b;--ac:#00a884;--t:#e9edef;--t2:#8696a0;--ln:#222d34;--bl:#53bdeb}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--t);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+#app{height:100%}
+.app{display:flex;height:100%;max-width:1400px;margin:0 auto;background:var(--p)}
+.side{width:380px;flex:none;border-right:1px solid var(--ln);display:flex;flex-direction:column;min-height:0}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg) radial-gradient(#ffffff08 1.2px,transparent 1.4px) 0 0/22px 22px}
+header{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--p2);min-height:60px}
+header .hn{flex:1;min-width:0}
+header b,.mid b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+small{color:var(--t2);font-size:13px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+header button{font-size:20px;color:var(--t2);padding:6px 8px;border-radius:8px}
+header button:hover{background:#ffffff14}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.it:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+.av{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:18px;flex:none}
+#list{overflow-y:auto;flex:1}
+.it{display:flex;align-items:center;gap:12px;padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--ln)}
+.it:hover,.it.on{background:var(--p2)}
+.mid{flex:1;min-width:0}
+.mid small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rt{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.rt i{background:var(--ac);color:#04251d;font-style:normal;font-weight:700;font-size:12px;min-width:20px;height:20px;border-radius:10px;display:grid;place-items:center;padding:0 6px}
+.hint{color:var(--t2);text-align:center;padding:28px 20px}
+#empty{margin:auto;text-align:center;color:var(--t2);padding:20px}
+#empty h2{color:var(--t);font-weight:500;margin-bottom:8px}
+#chat{display:flex;flex-direction:column;flex:1;min-height:0}
+#chat[hidden],#empty[hidden]{display:none}
+#msgs{flex:1;overflow-y:auto;padding:16px 8%;display:flex;flex-direction:column;gap:3px}
+.b{max-width:min(75%,520px);padding:6px 8px 6px 10px;border-radius:9px;background:var(--p2);word-wrap:break-word;overflow-wrap:anywhere}
+.b.o{background:var(--out);align-self:flex-end}
+.b.i{align-self:flex-start}
+.b span{float:right;margin:8px 0 -4px 12px;font-size:11px;color:#ffffff99;white-space:nowrap}
+.b em{font-style:normal;margin-left:3px;letter-spacing:-2px}
+.b em.rd{color:var(--bl)}
+form.send{display:flex;gap:8px;padding:10px 12px;background:var(--p2);align-items:flex-end}
+form.send textarea{flex:1;resize:none;max-height:120px;background:#2a3942;color:var(--t);border:0;border-radius:10px;padding:10px 12px;font:inherit}
+.btn{background:var(--ac);color:#04251d;font-weight:700;border-radius:22px;padding:10px 18px}
+.btn:disabled{opacity:.5}
+.ov{position:fixed;inset:0;background:#000b;display:grid;place-items:center;padding:16px;z-index:9}
+.card{background:var(--p2);border-radius:14px;padding:22px;width:min(420px,100%);max-height:100%;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+.card input,.card select{width:100%;background:#2a3942;color:var(--t);border:0;border-radius:8px;padding:11px 12px;font:inherit}
+.card h2,.card h3{font-weight:600}
+.card a{color:var(--ac);cursor:pointer;text-align:center;font-size:14px}
+.err{color:#ff8a80;font-size:13px;min-height:0}
+.code{font:700 30px/1.2 ui-monospace,Menlo,Consolas,monospace;text-align:center;letter-spacing:3px;background:#2a3942;border-radius:10px;padding:14px;user-select:all}
+#back{display:none}
+@media(max-width:760px){.side{width:100%;border:0}.main{display:none}.app.open .side{display:none}.app.open .main{display:flex}#back{display:block}#msgs{padding:12px 10px}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="module">
+import{initializeApp}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import{getAuth,signInAnonymously,onAuthStateChanged}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import{getFirestore,doc,getDoc,setDoc,addDoc,updateDoc,collection,query,where,limit,getDocs,onSnapshot,orderBy,writeBatch,serverTimestamp,increment}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+// ⚙️ PEGÁ ACÁ LA CONFIGURACIÓN DE TU PROYECTO (Firebase → Configuración del proyecto → Tus apps → Web)
+const firebaseConfig={
+  apiKey:"AIzaSyClq25jD4VDIxNJMdtJCnbb9kqcZtx3y-Q",
+  authDomain:"wsp-2a882.firebaseapp.com",
+  projectId:"wsp-2a882",
+  storageBucket:"wsp-2a882.firebasestorage.app",
+  messagingSenderId:"715255040360",
+  appId:"1:715255040360:web:0a4dbc864e7deeec026edd"
+};
+
+const C={
+JP:{n:'Japón',f:'🇯🇵',d:'81',p:['90','80','70'],l:10,t:'## #### ####'},
+MX:{n:'México',f:'🇲🇽',d:'52',p:['55','33','81'],l:10,t:'## #### ####'},
+AR:{n:'Argentina',f:'🇦🇷',d:'54',p:['911'],l:11,t:'# ## #### ####'},
+ES:{n:'España',f:'🇪🇸',d:'34',p:['6','7'],l:9,t:'### ### ###'},
+US:{n:'Estados Unidos',f:'🇺🇸',d:'1',p:['212','310','415','305'],l:10,t:'(###) ###-####'},
+KR:{n:'Corea del Sur',f:'🇰🇷',d:'82',p:['10'],l:10,t:'## #### ####'},
+BR:{n:'Brasil',f:'🇧🇷',d:'55',p:['119','219'],l:11,t:'## ##### ####'},
+CO:{n:'Colombia',f:'🇨🇴',d:'57',p:['3'],l:10,t:'### ### ####'},
+CL:{n:'Chile',f:'🇨🇱',d:'56',p:['9'],l:9,t:'# #### ####'},
+PE:{n:'Perú',f:'🇵🇪',d:'51',p:['9'],l:9,t:'### ### ###'}};
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const rnd=n=>Array.from({length:n},()=>Math.floor(Math.random()*10)).join('');
+const gen=c=>{const p=pick(c.p);return p+rnd(c.l-p.length)};
+const fmt=(n,t)=>{let i=0;return t.replace(/#/g,()=>n[i++]??'')+n.slice(i)};
+const hue=s=>[...s].reduce((a,c)=>a*31+c.charCodeAt(0),7)%360;
+const av=(id,name)=>{const i=(name||'?').trim()[0]||'?';return`<div class="av" style="background:hsl(${hue(id)} 40% 36%)">${esc(i.toUpperCase())}</div>`};
+const hm=t=>t&&t.toDate?t.toDate().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}):'';
+const nc=c=>c.toUpperCase().replace(/[^A-Z0-9]/g,'');
+const AL='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+async function sha(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+function modal(h){const o=document.createElement('div');o.className='ov';o.innerHTML=`<div class="card">${h}</div>`;o.addEventListener('mousedown',e=>{if(e.target===o)o.remove()});document.body.appendChild(o);return o}
+
+if(firebaseConfig.apiKey.startsWith('TU_')){
+  $('app').innerHTML='<div class="ov"><div class="card"><h2>Falta configurar Firebase</h2><p>Abrí <b>index.html</b> y reemplazá los datos de <code>firebaseConfig</code> por los de tu proyecto (Firebase → Configuración del proyecto → Tus apps → Web).</p></div></div>';
+  throw new Error('firebaseConfig sin completar');
+}
+const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
+let uid,me,cur=null,unsub=null,chats=[],peers={},contacts={};
+
+onAuthStateChanged(auth,async u=>{
+  if(!u){signInAnonymously(auth).catch(()=>$('app').innerHTML='<div class="ov"><div class="card"><h2>No se pudo entrar</h2><p>Activá el acceso <b>Anónimo</b> en Firebase → Authentication → Método de acceso.</p></div></div>');return}
+  uid=u.uid;
+  try{const s=await getDocs(query(collection(db,'numbers'),where('uid','==',uid),limit(1)));
+    if(s.empty)welcome('c');else{me={id:s.docs[0].id,...s.docs[0].data()};main()}}
+  catch(e){console.error(e);$('app').innerHTML='<div class="ov"><div class="card"><h2>Error de base de datos</h2><p>Creá Firestore y publicá las reglas de <b>firestore.rules</b>.</p></div></div>'}
+});
+
+async function crear(name,cc,status){
+  const c=C[cc];
+  for(let i=0;i<8;i++){
+    const nat=gen(c),id=c.d+nat;
+    if((await getDoc(doc(db,'numbers',id))).exists())continue;
+    const code=Array.from(crypto.getRandomValues(new Uint8Array(8)),x=>AL[x%AL.length]).join('');
+    const data={uid,name,status,country:cc,disp:'+'+c.d+' '+fmt(nat,c.t),created:serverTimestamp()};
+    const b=writeBatch(db);
+    b.set(doc(db,'numbers',id),data);
+    b.set(doc(db,'secrets',id),{hash:await sha(code)});
+    try{await b.commit()}catch(e){console.error(e);continue}
+    me={id,...data};return code;
+  }
+  throw new Error('sin número libre');
+}
+
+function welcome(mode){
+  const cr=mode==='c';
+  $('app').innerHTML=`<div class="ov" style="position:static;height:100%"><div class="card"><h2>📱 WhatsApp</h2><small>Cursed Era III · simulación in character</small>`+(cr
+  ?`<input id="wn" maxlength="30" placeholder="Tu nombre"><select id="wc">${Object.entries(C).map(([k,c])=>`<option value="${k}"${k==='JP'?' selected':''}>${c.f} ${c.n} (+${c.d})</option>`).join('')}</select><input id="ws" maxlength="60" placeholder="Estado (opcional)"><p class="err" id="we"></p><button class="btn" id="wg">Crear mi número</button><a id="sw">¿Ya tenías un número? Recuperarlo</a>`
+  :`<input id="rn" placeholder="Tu número (con código de país)" inputmode="tel"><input id="rc" placeholder="Código de recuperación"><p class="err" id="we"></p><button class="btn" id="wg">Recuperar mi número</button><a id="sw">Crear un número nuevo</a>`)+`</div></div>`;
+  $('sw').onclick=()=>welcome(cr?'r':'c');
+  $('wg').onclick=async()=>{
+    const err=$('we');err.textContent='';$('wg').disabled=true;
+    try{
+      if(cr){
+        const name=$('wn').value.trim();
+        if(!name){err.textContent='Escribí un nombre.';$('wg').disabled=false;return}
+        const code=await crear(name,$('wc').value,$('ws').value.trim()||'Disponible');
+        const m=modal(`<h3>Tu código de recuperación</h3><div class="code">${code.slice(0,4)}-${code.slice(4)}</div><p>Guardalo ahora: no se vuelve a mostrar. Si perdés el acceso desde este navegador, con tu número y este código recuperás todos tus chats.</p><button class="btn" id="cg">Ya lo guardé</button>`);
+        m.querySelector('#cg').onclick=()=>{m.remove();main()};
+      }else{
+        const id=$('rn').value.replace(/\D/g,''),h=await sha(nc($('rc').value));
+        await setDoc(doc(db,'claims',id),{uid,hash:h});
+        await updateDoc(doc(db,'numbers',id),{uid});
+        const s=await getDoc(doc(db,'numbers',id));me={id,...s.data()};main();
+      }
+    }catch(e){console.error(e);err.textContent=cr?'No se pudo crear el número. Revisá Firestore y las reglas.':'Número o código incorrecto.';$('wg').disabled=false}
+  };
+}
+
+function main(){
+  $('app').innerHTML=`<div class="app" id="ap"><aside class="side"><header><div id="me"></div><div class="hn"><b id="mn"></b><small id="mnum"></small></div><button data-a="new" title="Nuevo chat" aria-label="Nuevo chat">＋</button><button data-a="prof" title="Mi perfil" aria-label="Mi perfil">⚙</button></header><div id="list"></div></aside>
+<section class="main"><div id="empty"><h2>WhatsApp · Cursed Era III</h2><p>Elegí un chat o tocá ＋ para escribirle a alguien con su número.</p></div>
+<div id="chat" hidden><header><button id="back" data-a="back" aria-label="Volver">←</button><div id="hav"></div><div class="hn"><b id="hn"></b><small id="hs"></small></div></header><div id="msgs"></div>
+<form class="send" id="sf"><textarea id="tx" rows="1" placeholder="Escribe un mensaje" maxlength="2000"></textarea><button class="btn" aria-label="Enviar">➤</button></form></div></section></div>`;
+  renderMe();
+  onSnapshot(query(collection(db,'numbers',me.id,'chats'),orderBy('lastAt','desc')),s=>{chats=s.docs.map(d=>({id:d.id,...d.data({serverTimestamps:'estimate'})}));chats.forEach(c=>loadPeer(c.id));renderList()});
+  onSnapshot(collection(db,'numbers',me.id,'contacts'),s=>{contacts={};s.forEach(d=>contacts[d.id]=d.data());renderList();renderHead()});
+  $('sf').onsubmit=e=>{e.preventDefault();enviar()};
+  $('tx').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();enviar()}};
+}
+
+const nameOf=id=>contacts[id]?.alias||peers[id]?.name||'+'+id;
+function renderMe(){$('me').innerHTML=av(me.id,me.name);$('mn').textContent=me.name;$('mnum').textContent=me.disp}
+async function loadPeer(id){if(peers[id]!==undefined)return;peers[id]=null;const s=await getDoc(doc(db,'numbers',id));peers[id]=s.exists()?s.data():null;renderList();renderHead()}
+function renderList(){
+  $('list').innerHTML=chats.length?chats.map(c=>`<div class="it${c.id===cur?' on':''}" tabindex="0" data-a="open" data-p="${c.id}">${av(c.id,nameOf(c.id))}<div class="mid"><b>${esc(nameOf(c.id))}</b><small>${esc(c.last)}</small></div><div class="rt"><small>${hm(c.lastAt)}</small>${c.unread>0&&c.id!==cur?`<i>${c.unread}</i>`:''}</div></div>`).join(''):'<p class="hint">Todavía no tenés chats.<br>Tocá ＋ y escribí el número de otra persona.</p>';
+}
+function renderHead(){if(!cur)return;$('hav').innerHTML=av(cur,nameOf(cur));$('hn').textContent=nameOf(cur);$('hs').textContent=peers[cur]?peers[cur].status||'':'+'+cur}
+
+function open(p){
+  cur=p;unsub&&unsub();loadPeer(p);
+  $('ap').classList.add('open');$('empty').hidden=true;$('chat').hidden=false;renderHead();renderList();
+  const cid=[me.id,p].sort().join('_');
+  unsub=onSnapshot(query(collection(db,'chats',cid,'msgs'),orderBy('at')),s=>{
+    if(cur!==p)return;
+    $('msgs').innerHTML=s.docs.map(d=>{const m=d.data({serverTimestamps:'estimate'}),o=m.from===me.id;
+      return`<div class="b ${o?'o':'i'}">${esc(m.text).replace(/\n/g,'<br>')}<span>${hm(m.at)}${o?`<em class="${m.status==='read'?'rd':''}">${m.status==='read'?'✓✓':'✓'}</em>`:''}</span></div>`}).join('');
+    $('msgs').scrollTop=$('msgs').scrollHeight;
+    s.docs.forEach(d=>{const m=d.data();if(m.from!==me.id&&m.status!=='read')updateDoc(d.ref,{status:'read'}).catch(()=>{})});
+    if(chats.find(c=>c.id===p)?.unread)setDoc(doc(db,'numbers',me.id,'chats',p),{unread:0},{merge:true}).catch(()=>{});
+  });
+  $('tx').focus();
+}
+
+async function enviar(){
+  const text=$('tx').value.trim();if(!text||!cur)return;
+  $('tx').value='';const p=cur,cid=[me.id,p].sort().join('_'),last=text.slice(0,80),now=serverTimestamp();
+  try{
+    await addDoc(collection(db,'chats',cid,'msgs'),{from:me.id,text,at:now,status:'sent'});
+    await setDoc(doc(db,'numbers',me.id,'chats',p),{last,lastAt:now,unread:0},{merge:true});
+    await setDoc(doc(db,'numbers',p,'chats',me.id),{last,lastAt:now,unread:increment(1)},{merge:true});
+  }catch(e){console.error(e);$('tx').value=text}
+}
+
+function newChat(){
+  const cs=Object.entries(contacts);
+  const m=modal(`<h3>Nuevo chat</h3><input id="nn" placeholder="Número (ej. +81 90 1234 5678)" inputmode="tel"><input id="na" placeholder="Guardar como (opcional)" maxlength="30"><p class="err" id="ne"></p><button class="btn" id="ng">Abrir chat</button>${cs.length?'<h3>Contactos</h3>'+cs.map(([id,c])=>`<div class="it" tabindex="0" data-a="open" data-p="${id}">${av(id,c.alias)}<div class="mid"><b>${esc(c.alias)}</b><small>+${id}</small></div></div>`).join(''):''}`);
+  m.querySelector('#nn').focus();
+  m.querySelector('#ng').onclick=async()=>{
+    const id=m.querySelector('#nn').value.replace(/\D/g,''),err=m.querySelector('#ne');
+    if(!id){err.textContent='Escribí un número.';return}
+    if(id===me.id){err.textContent='Ese es tu número.';return}
+    try{
+      const s=await getDoc(doc(db,'numbers',id));
+      if(!s.exists()){err.textContent='Ese número no existe. Revisá que tenga el código de país.';return}
+      const al=m.querySelector('#na').value.trim();
+      if(al)await setDoc(doc(db,'numbers',me.id,'contacts',id),{alias:al});
+      peers[id]=s.data();m.remove();open(id);
+    }catch(e){console.error(e);err.textContent='No se pudo buscar el número.'}
+  };
+}
+
+function perfil(){
+  const m=modal(`<h3>Mi perfil</h3><small>Tu número (compartilo para que te escriban)</small><div class="code" style="font-size:20px" id="pn">${esc(me.disp)}</div><button class="btn" id="pc">Copiar número</button><input id="pnm" maxlength="30" value="${esc(me.name)}" placeholder="Nombre"><input id="pst" maxlength="60" value="${esc(me.status)}" placeholder="Estado"><button class="btn" id="ps">Guardar cambios</button>`);
+  m.querySelector('#pc').onclick=()=>{navigator.clipboard?.writeText(me.disp);m.querySelector('#pc').textContent='Copiado'};
+  m.querySelector('#ps').onclick=async()=>{
+    const name=m.querySelector('#pnm').value.trim()||me.name,status=m.querySelector('#pst').value.trim();
+    await updateDoc(doc(db,'numbers',me.id),{name,status});me={...me,name,status};renderMe();m.remove();
+  };
+}
+
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-a]');if(!t)return;
+  const a=t.dataset.a;
+  if(a==='new')newChat();
+  else if(a==='prof')perfil();
+  else if(a==='back'){$('ap').classList.remove('open');cur=null;unsub&&unsub();$('chat').hidden=true;$('empty').hidden=false;renderList()}
+  else if(a==='open'){t.closest('.ov')?.remove();open(t.dataset.p)}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('.it[data-a]'))e.target.click()});
+</script>
+</body>
+</html>
