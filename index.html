@@ -63,6 +63,46 @@ form.send textarea{flex:1;resize:none;max-height:120px;background:#2a3942;color:
 .pav .av{width:72px;height:72px;font-size:26px}
 label.btn{display:inline-block}
 #back{display:none}
+.tabs{display:flex;border-bottom:1px solid var(--ln)}
+.tabs button{flex:1;padding:10px;color:var(--t2);font-weight:600;border-bottom:3px solid transparent}
+.tabs button.on{color:var(--ac);border-color:var(--ac)}
+.menu{position:fixed;background:var(--p2);border-radius:10px;padding:6px;min-width:210px;box-shadow:0 4px 18px #0008;z-index:40}
+.menu button{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:8px;font-size:14px}
+.menu button:hover{background:#ffffff14}
+.menu button.danger{color:#ff8a80}
+.pinbar{background:#ffffff0d;padding:6px 14px;font-size:13px;display:flex;flex-direction:column;gap:4px;max-height:110px;overflow-y:auto;border-bottom:1px solid var(--ln)}
+.pinbar[hidden]{display:none}
+.pinrow{display:flex;align-items:center;gap:8px}
+.pinrow span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--t2)}
+.pinrow button{color:var(--t2);font-size:12px;flex:none}
+.b{position:relative;padding-top:16px}
+.pinx{position:absolute;top:3px;right:7px;font-size:11px;opacity:.35;cursor:pointer}
+.b.i .pinx{left:7px;right:auto}
+.b.pinned{box-shadow:inset 0 0 0 1px var(--ac)}
+.b.pinned .pinx{opacity:1}
+.b img.bm,.b video.bm{max-width:260px;max-height:320px;border-radius:8px;display:block;margin-top:2px}
+.b audio.bm{width:220px;display:block;margin-top:2px}
+.icb{font-size:22px;color:var(--t2);padding:8px;border-radius:50%}
+.icb:hover{background:#ffffff14}
+.rec{display:flex;align-items:center;gap:10px;flex:1;color:#ff8a80;padding:10px 12px}
+.rec .dot{width:10px;height:10px;border-radius:50%;background:#ff5252;animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.2}}
+.avring{width:48px;height:48px;border-radius:50%;padding:2px;display:grid;place-items:center;background:var(--t2);flex:none}
+.avring.new{background:var(--ac)}
+.avring .av{width:44px;height:44px}
+.sv{position:fixed;inset:0;background:#000;z-index:50;display:flex;flex-direction:column}
+.sv .bars{display:flex;gap:4px;padding:8px}
+.sv .bars i{flex:1;height:3px;background:#ffffff40;border-radius:2px;overflow:hidden}
+.sv .bars i b{display:block;height:100%;background:#fff;width:0%}
+.sv header{background:transparent;color:#fff}
+.sv header button{color:#fff;font-size:20px}
+.sv header small{color:#ffffffbb}
+.sv .stage{flex:1;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.sv .stage img,.sv .stage video{max-width:100%;max-height:100%;object-fit:contain}
+.sv .nav{position:absolute;top:0;bottom:0;width:33%;cursor:pointer}
+.sv .nav.l{left:0}
+.sv .nav.r{right:0}
+.sv .cap{color:#fff;text-align:center;padding:10px;background:#0006}
 @media(max-width:760px){.side{width:100%;border:0}.main{display:none}.app.open .side{display:none}.app.open .main{display:flex}#back{display:block}#msgs{padding:12px 10px}}
 </style>
 </head>
@@ -71,7 +111,7 @@ label.btn{display:inline-block}
 <script type="module">
 import{initializeApp}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import{getAuth,signInAnonymously,onAuthStateChanged}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import{getFirestore,doc,getDoc,setDoc,addDoc,updateDoc,collection,query,where,limit,getDocs,onSnapshot,orderBy,writeBatch,serverTimestamp,increment}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import{getFirestore,doc,getDoc,setDoc,addDoc,updateDoc,deleteDoc,collection,query,where,limit,getDocs,onSnapshot,orderBy,writeBatch,serverTimestamp,increment,arrayUnion}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 // ⚙️ PEGÁ ACÁ LA CONFIGURACIÓN DE TU PROYECTO (Firebase → Configuración del proyecto → Tus apps → Web)
 const firebaseConfig={
@@ -132,7 +172,7 @@ if(firebaseConfig.apiKey.startsWith('TU_')){
   throw new Error('firebaseConfig sin completar');
 }
 const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
-let uid,me,cur=null,unsub=null,chats=[],peers={},contacts={};
+let uid,me,cur=null,curType='dm',unsub=null,chats=[],peers={},contacts={},groups={},statuses={},statusUnsubs={},view='chats',mediaRec=null,recChunks=[],recTimer=null,recStart=0;
 
 onAuthStateChanged(auth,async u=>{
   if(!u){signInAnonymously(auth).catch(()=>$('app').innerHTML='<div class="ov"><div class="card"><h2>No se pudo entrar</h2><p>Activá el acceso <b>Anónimo</b> en Firebase → Authentication → Método de acceso.</p></div></div>');return}
@@ -196,48 +236,196 @@ function welcome(mode){
 }
 
 function main(){
-  $('app').innerHTML=`<div class="app" id="ap"><aside class="side"><header><div id="me"></div><div class="hn"><b id="mn"></b><small id="mnum"></small></div><button data-a="new" title="Nuevo chat" aria-label="Nuevo chat">＋</button><button data-a="prof" title="Mi perfil" aria-label="Mi perfil">⚙</button></header><div id="list"></div></aside>
+  $('app').innerHTML=`<div class="app" id="ap"><aside class="side"><header><div id="me"></div><div class="hn"><b id="mn"></b><small id="mnum"></small></div><button data-a="addmenu" title="Nuevo" aria-label="Nuevo">＋</button><button data-a="prof" title="Mi perfil" aria-label="Mi perfil">⚙</button></header>
+<div class="tabs"><button data-a="tab" data-v="chats" class="on" id="tbc">Chats</button><button data-a="tab" data-v="status" id="tbs">Estados</button></div>
+<div id="list"></div></aside>
 <section class="main"><div id="empty"><h2>WhatsApp · Cursed Era III</h2><p>Elegí un chat o tocá ＋ para escribirle a alguien con su número.</p></div>
-<div id="chat" hidden><header><button id="back" data-a="back" aria-label="Volver">←</button><div id="hav"></div><div class="hn"><b id="hn"></b><small id="hs"></small></div></header><div id="msgs"></div>
-<form class="send" id="sf"><textarea id="tx" rows="1" placeholder="Escribe un mensaje" maxlength="2000"></textarea><button class="btn" aria-label="Enviar">➤</button></form></div></section></div>`;
-  renderMe();
-  onSnapshot(query(collection(db,'numbers',me.id,'chats'),orderBy('lastAt','desc')),s=>{chats=s.docs.map(d=>({id:d.id,...d.data({serverTimestamps:'estimate'})}));chats.forEach(c=>loadPeer(c.id));renderList()});
+<div id="chat" hidden><header><button id="back" data-a="back" aria-label="Volver">←</button><div id="hav"></div><div class="hn"><b id="hn"></b><small id="hs"></small></div><button data-a="chatmenu" title="Más opciones" aria-label="Más opciones">⋮</button></header>
+<div class="pinbar" id="pinbar" hidden></div><div id="msgs"></div>
+<form class="send" id="sf"></form></div></section></div>`;
+  renderMe();bindSendForm();
+  onSnapshot(query(collection(db,'numbers',me.id,'chats'),orderBy('lastAt','desc')),s=>{chats=s.docs.map(d=>({id:d.id,...d.data({serverTimestamps:'estimate'})}));chats.forEach(c=>{if(!c.isGroup)loadPeer(c.id)});renderList()});
   onSnapshot(collection(db,'numbers',me.id,'contacts'),s=>{contacts={};s.forEach(d=>contacts[d.id]=d.data());renderList();renderHead()});
-  $('sf').onsubmit=e=>{e.preventDefault();enviar()};
-  $('tx').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();enviar()}};
+}
+
+function sendFormHTML(){
+  return`<button type="button" class="icb" data-a="attach" aria-label="Adjuntar">📎</button><input type="file" id="fatt" accept="image/*,video/*" style="display:none"><textarea id="tx" rows="1" placeholder="Escribe un mensaje" maxlength="2000"></textarea><button type="button" class="icb" id="micbtn" aria-label="Audio">🎤</button><button class="btn" aria-label="Enviar">➤</button>`;
+}
+function bindSendForm(){
+  $('sf').innerHTML=sendFormHTML();
+  $('sf').onsubmit=e=>{e.preventDefault();sendText()};
+  $('tx').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendText()}};
+  $('fatt').onchange=async e=>{
+    const f=e.target.files[0];e.target.value='';if(!f||!cur)return;
+    try{
+      if(f.type.startsWith('image/')){await enviar({type:'image',media:await toMedia(f,1280,.72)})}
+      else if(f.type.startsWith('video/')){
+        if(f.size>900*1024){alert('El video es muy pesado (máx ~900KB). Elegí uno más corto o comprimido.');return}
+        await enviar({type:'video',media:await fileToDataURL(f)});
+      }else{alert('Elegí una imagen o un video.')}
+    }catch(err){console.error(err);alert('No se pudo adjuntar el archivo.')}
+  };
+  $('micbtn').onclick=startRec;
+}
+function sendText(){
+  const text=$('tx').value.trim();if(!text||!cur)return;
+  $('tx').value='';
+  enviar({type:'text',text}).catch(e=>{console.error(e);$('tx').value=text});
+}
+async function startRec(){
+  if(mediaRec&&mediaRec.state==='recording'){mediaRec.stop();return}
+  if(!cur)return;
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    recChunks=[];mediaRec=new MediaRecorder(stream);let cancelled=false;
+    mediaRec.ondataavailable=e=>recChunks.push(e.data);
+    mediaRec.onstop=async()=>{
+      stream.getTracks().forEach(tr=>tr.stop());clearInterval(recTimer);bindSendForm();
+      if(cancelled)return;
+      const blob=new Blob(recChunks,{type:'audio/webm'});
+      if(blob.size>900*1024){alert('El audio quedó muy largo, grabá algo más corto.');return}
+      try{const durl=await fileToDataURL(blob);await enviar({type:'audio',media:durl})}catch(e){console.error(e)}
+    };
+    mediaRec.start();recStart=Date.now();
+    $('sf').innerHTML=`<div class="rec"><span class="dot"></span><span id="rectime">0:00</span></div><button type="button" class="icb" id="reccancel" aria-label="Cancelar">✕</button><button type="button" class="btn" id="recstop">Enviar</button>`;
+    $('recstop').onclick=()=>mediaRec.stop();
+    $('reccancel').onclick=()=>{cancelled=true;mediaRec.stop()};
+    recTimer=setInterval(()=>{const s=Math.floor((Date.now()-recStart)/1000);$('rectime').textContent=`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`},250);
+  }catch(err){console.error(err);alert('No se pudo acceder al micrófono.')}
+}
+function toMedia(file,maxDim,q){
+  return new Promise((res,rej)=>{
+    const img=new Image(),url=URL.createObjectURL(file);
+    img.onload=()=>{
+      let w=img.width,h=img.height;
+      if(w>maxDim||h>maxDim){const r=Math.min(maxDim/w,maxDim/h);w=Math.round(w*r);h=Math.round(h*r)}
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      URL.revokeObjectURL(url);res(c.toDataURL('image/jpeg',q));
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('img'))};
+    img.src=url;
+  });
+}
+function fileToDataURL(file){
+  return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(new Error('file'));r.readAsDataURL(file)});
+}
+function menuAt(anchor,items){
+  document.querySelectorAll('.menu').forEach(m=>m.remove());
+  const r=anchor.getBoundingClientRect();
+  const m=document.createElement('div');m.className='menu';
+  m.style.top=(r.bottom+4)+'px';m.style.right=Math.max(8,window.innerWidth-r.right)+'px';
+  m.innerHTML=items.map((it,i)=>`<button data-i="${i}"${it.danger?' class="danger"':''}>${esc(it.label)}</button>`).join('');
+  document.body.appendChild(m);
+  m.querySelectorAll('button').forEach((b,i)=>b.onclick=()=>{m.remove();items[i].fn()});
+  setTimeout(()=>document.addEventListener('mousedown',function close(e){if(!m.contains(e.target)){m.remove();document.removeEventListener('mousedown',close)}}));
 }
 
 const nameOf=id=>contacts[id]?.alias||peers[id]?.name||'+'+id;
 function renderMe(){$('me').innerHTML=av(me.id,me.name,me.photo);$('mn').textContent=me.name;$('mnum').textContent=me.disp}
 async function loadPeer(id){if(peers[id]!==undefined)return;peers[id]=null;const s=await getDoc(doc(db,'numbers',id));peers[id]=s.exists()?s.data():null;renderList();renderHead()}
+async function loadGroup(id){const s=await getDoc(doc(db,'groups',id));if(s.exists()){groups[id]=s.data();renderHead()}}
+function chatTitle(c){return c.isGroup?(c.name||'Grupo'):nameOf(c.id)}
+function chatAvatar(c){return c.isGroup?(c.photo?av(c.id,c.name,c.photo):`<div class="av" style="background:hsl(${hue(c.id)} 40% 30%)">👥</div>`):av(c.id,nameOf(c.id),peers[c.id]?.photo)}
 function renderList(){
-  $('list').innerHTML=chats.length?chats.map(c=>`<div class="it${c.id===cur?' on':''}" tabindex="0" data-a="open" data-p="${c.id}">${av(c.id,nameOf(c.id),peers[c.id]?.photo)}<div class="mid"><b>${esc(nameOf(c.id))}</b><small>${esc(c.last)}</small></div><div class="rt"><small>${hm(c.lastAt)}</small>${c.unread>0&&c.id!==cur?`<i>${c.unread}</i>`:''}</div></div>`).join(''):'<p class="hint">Todavía no tenés chats.<br>Tocá ＋ y escribí el número de otra persona.</p>';
+  if(view==='status'){renderStatusTab();return}
+  $('list').innerHTML=chats.length?chats.map(c=>`<div class="it${c.id===cur?' on':''}" tabindex="0" data-a="open" data-p="${c.id}" data-g="${c.isGroup?1:0}">${chatAvatar(c)}<div class="mid"><b>${esc(chatTitle(c))}</b><small>${esc(c.last||'')}</small></div><div class="rt"><small>${hm(c.lastAt)}</small>${c.unread>0&&c.id!==cur?`<i>${c.unread}</i>`:''}</div></div>`).join(''):'<p class="hint">Todavía no tenés chats.<br>Tocá ＋ y escribí el número de otra persona.</p>';
 }
-function renderHead(){if(!cur)return;$('hav').innerHTML=av(cur,nameOf(cur),peers[cur]?.photo);$('hn').textContent=nameOf(cur);$('hs').textContent=peers[cur]?peers[cur].status||'':'+'+cur}
+function renderHead(){
+  if(!cur)return;
+  if(curType==='group'){
+    const g=groups[cur];
+    $('hav').innerHTML=g?.photo?av(cur,g.name,g.photo):`<div class="av" style="background:hsl(${hue(cur)} 40% 30%)">👥</div>`;
+    $('hn').textContent=g?.name||'Grupo';
+    $('hs').textContent=g?`${g.members.length} miembros`:'';
+  }else{
+    $('hav').innerHTML=av(cur,nameOf(cur),peers[cur]?.photo);
+    $('hn').textContent=nameOf(cur);
+    $('hs').textContent=peers[cur]?peers[cur].status||'':'+'+cur;
+  }
+}
+function renderStatusTab(){
+  const people=new Set(Object.keys(contacts));
+  chats.forEach(c=>{if(!c.isGroup)people.add(c.id)});
+  people.forEach(id=>{loadPeer(id);watchStatus(id)});
+  const mine=statuses[me.id]||[];
+  let html=`<div class="it" tabindex="0" data-a="mystatus"><div class="avring">${av(me.id,me.name,me.photo)}</div><div class="mid"><b>Mi estado</b><small>${mine.length?`${mine.length} actualización${mine.length>1?'es':''} · Tocá para ver o agregar`:'Tocá para agregar una actualización'}</small></div></div>`;
+  const others=[...people].filter(id=>(statuses[id]||[]).length);
+  if(others.length){
+    html+=`<p class="hint" style="text-align:left;padding:10px 14px 4px">Actualizaciones recientes</p>`;
+    html+=others.map(id=>{
+      const list=statuses[id]||[],unseen=list.some(x=>!(x.viewedBy||[]).includes(me.id));
+      return`<div class="it" tabindex="0" data-a="viewstatus" data-p="${id}"><div class="avring ${unseen?'new':''}">${av(id,nameOf(id),peers[id]?.photo)}</div><div class="mid"><b>${esc(nameOf(id))}</b><small>${hm(list[0].at)}</small></div></div>`;
+    }).join('');
+  }else{
+    html+='<p class="hint">Todavía no hay actualizaciones de tus contactos.</p>';
+  }
+  $('list').innerHTML=html;
+}
+function watchStatus(id){
+  if(statusUnsubs[id])return;
+  statusUnsubs[id]=onSnapshot(query(collection(db,'numbers',id,'statuses'),orderBy('at','desc')),s=>{
+    const now=Date.now();
+    statuses[id]=s.docs.map(d=>({id:d.id,...d.data({serverTimestamps:'estimate'})})).filter(x=>!x.at||now-x.at.toDate().getTime()<24*3600*1000);
+    if(view==='status')renderList();
+  });
+}
 
-function open(p){
-  cur=p;unsub&&unsub();loadPeer(p);
+function open(p,isGroup){
+  if(mediaRec&&mediaRec.state==='recording')mediaRec.stop();
+  cur=p;curType=isGroup?'group':'dm';unsub&&unsub();
+  if(isGroup)loadGroup(p);else loadPeer(p);
   $('ap').classList.add('open');$('empty').hidden=true;$('chat').hidden=false;renderHead();renderList();
-  const cid=[me.id,p].sort().join('_');
+  const cid=isGroup?p:[me.id,p].sort().join('_');
   unsub=onSnapshot(query(collection(db,'chats',cid,'msgs'),orderBy('at')),s=>{
     if(cur!==p)return;
-    $('msgs').innerHTML=s.docs.map(d=>{const m=d.data({serverTimestamps:'estimate'}),o=m.from===me.id;
-      return`<div class="b ${o?'o':'i'}">${esc(m.text).replace(/\n/g,'<br>')}<span>${hm(m.at)}${o?`<em class="${m.status==='read'?'rd':''}">${m.status==='read'?'✓✓':'✓'}</em>`:''}</span></div>`}).join('');
+    const cl=chats.find(c=>c.id===p)?.clearedAt;
+    const docs=s.docs.filter(d=>{const m=d.data();return !cl||!m.at||m.at.toDate()>cl.toDate()});
+    $('msgs').innerHTML=docs.map(d=>bubble(d,isGroup)).join('');
+    renderPinBar(docs);
     $('msgs').scrollTop=$('msgs').scrollHeight;
-    s.docs.forEach(d=>{const m=d.data();if(m.from!==me.id&&m.status!=='read')updateDoc(d.ref,{status:'read'}).catch(()=>{})});
+    docs.forEach(d=>{const m=d.data();if(m.from!==me.id&&m.status!=='read')updateDoc(d.ref,{status:'read'}).catch(()=>{});if(isGroup&&m.from!==me.id)loadPeer(m.from)});
     if(chats.find(c=>c.id===p)?.unread)setDoc(doc(db,'numbers',me.id,'chats',p),{unread:0},{merge:true}).catch(()=>{});
   });
   $('tx').focus();
 }
+function bubble(d,isGroup){
+  const m=d.data({serverTimestamps:'estimate'}),o=m.from===me.id,id=d.id;
+  const senderName=isGroup&&!o?`<div style="font-size:12px;font-weight:600;color:var(--bl);margin-bottom:2px">${esc(nameOf(m.from))}</div>`:'';
+  let body='';
+  if(m.type==='image')body=`<img class="bm" src="${m.media}" alt="">`;
+  else if(m.type==='video')body=`<video class="bm" src="${m.media}" controls></video>`;
+  else if(m.type==='audio')body=`<audio class="bm" src="${m.media}" controls></audio>`;
+  else body=esc(m.text||'').replace(/\n/g,'<br>');
+  const tick=o?`<em class="${m.status==='read'?'rd':''}">${m.status==='read'?'✓✓':'✓'}</em>`:'';
+  return`<div class="b ${o?'o':'i'}${m.pinned?' pinned':''}" data-id="${id}"><span class="pinx" data-a="pin" data-id="${id}" data-v="${m.pinned?0:1}" title="${m.pinned?'Desfijar':'Fijar mensaje'}">📌</span>${senderName}${body}<span>${hm(m.at)}${tick}</span></div>`;
+}
+function renderPinBar(docs){
+  const pinned=docs.filter(d=>d.data().pinned),bar=$('pinbar');
+  if(!pinned.length){bar.hidden=true;bar.innerHTML='';return}
+  bar.hidden=false;
+  bar.innerHTML=pinned.map(d=>{const m=d.data(),txt=m.type&&m.type!=='text'?({image:'📷 Foto',video:'🎥 Video',audio:'🎤 Audio'})[m.type]:esc(m.text||'').slice(0,60);
+    return`<div class="pinrow"><span>📌 ${txt}</span><button data-a="unpin" data-id="${d.id}">Desfijar</button></div>`}).join('');
+}
+function curCid(){return curType==='group'?cur:[me.id,cur].sort().join('_')}
 
-async function enviar(){
-  const text=$('tx').value.trim();if(!text||!cur)return;
-  $('tx').value='';const p=cur,cid=[me.id,p].sort().join('_'),last=text.slice(0,80),now=serverTimestamp();
-  try{
-    await addDoc(collection(db,'chats',cid,'msgs'),{from:me.id,text,at:now,status:'sent'});
+async function enviar(payload){
+  if(!cur)return;
+  const now=serverTimestamp();
+  const last=payload.type==='text'?payload.text.slice(0,80):({image:'📷 Foto',video:'🎥 Video',audio:'🎤 Audio'})[payload.type];
+  const msg={from:me.id,at:now,status:'sent',type:payload.type,...(payload.type==='text'?{text:payload.text}:{media:payload.media})};
+  if(curType==='group'){
+    const gid=cur,g=groups[gid],members=g?g.members:[me.id];
+    await addDoc(collection(db,'chats',gid,'msgs'),msg);
+    const b=writeBatch(db);
+    members.forEach(mid=>b.set(doc(db,'numbers',mid,'chats',gid),{last,lastAt:now,isGroup:true,name:g?.name||'',photo:g?.photo||null,unread:mid===me.id?0:increment(1)},{merge:true}));
+    await b.commit();
+  }else{
+    const p=cur,cid=[me.id,p].sort().join('_');
+    await addDoc(collection(db,'chats',cid,'msgs'),msg);
     await setDoc(doc(db,'numbers',me.id,'chats',p),{last,lastAt:now,unread:0},{merge:true});
     await setDoc(doc(db,'numbers',p,'chats',me.id),{last,lastAt:now,unread:increment(1)},{merge:true});
-  }catch(e){console.error(e);$('tx').value=text}
+  }
 }
 
 function newChat(){
@@ -254,9 +442,95 @@ function newChat(){
       if(!s.exists()){err.textContent='Ese número no existe. Revisá que tenga el código de país.';return}
       const al=m.querySelector('#na').value.trim();
       if(al)await setDoc(doc(db,'numbers',me.id,'contacts',id),{alias:al});
-      peers[id]=s.data();m.remove();open(id);
+      peers[id]=s.data();m.remove();open(id,false);
     }catch(e){console.error(e);err.textContent='No se pudo buscar el número.'}
   };
+}
+
+function newGroup(){
+  const cs=Object.entries(contacts);
+  const m=modal(`<h3>Nuevo grupo</h3><input id="gn" maxlength="30" placeholder="Nombre del grupo"><p class="err" id="ge"></p><h3>Elegí participantes</h3>${cs.length?`<div class="clist" id="gcl" style="max-height:260px">${cs.map(([id,c])=>`<label class="citem" style="cursor:pointer"><input type="checkbox" value="${id}" style="margin-right:2px">${av(id,c.alias,peers[id]?.photo)}<span>${esc(c.alias)}</span></label>`).join('')}</div>`:'<p class="hint">Todavía no tenés contactos guardados. Agregá alguno desde "Nuevo chat".</p>'}<button class="btn" id="gg">Crear grupo</button>`);
+  cs.forEach(([id])=>loadPeer(id));
+  m.querySelector('#gg').onclick=async()=>{
+    const name=m.querySelector('#gn').value.trim(),err=m.querySelector('#ge');
+    if(!name){err.textContent='Ponele un nombre al grupo.';return}
+    const picked=[...m.querySelectorAll('#gcl input:checked')].map(i=>i.value);
+    if(!picked.length){err.textContent='Elegí al menos un participante.';return}
+    const members=[me.id,...picked];
+    try{
+      const ref=await addDoc(collection(db,'groups'),{name,photo:null,members,admin:me.id,created:serverTimestamp()});
+      const now=serverTimestamp(),b=writeBatch(db);
+      members.forEach(mid=>b.set(doc(db,'numbers',mid,'chats',ref.id),{last:'Grupo creado',lastAt:now,isGroup:true,name,photo:null,unread:mid===me.id?0:1},{merge:true}));
+      await b.commit();
+      groups[ref.id]={name,photo:null,members,admin:me.id};
+      m.remove();open(ref.id,true);
+    }catch(e){console.error(e);err.textContent='No se pudo crear el grupo.'}
+  };
+}
+
+function renameContact(){
+  const p=cur,m=modal(`<h3>Cambiar nombre</h3><input id="rna" maxlength="30" value="${esc(contacts[p]?.alias||peers[p]?.name||'')}" placeholder="Nombre"><p class="err" id="rne"></p><button class="btn" id="rns">Guardar</button>`);
+  m.querySelector('#rns').onclick=async()=>{
+    const al=m.querySelector('#rna').value.trim();
+    if(!al){m.querySelector('#rne').textContent='Escribí un nombre.';return}
+    try{await setDoc(doc(db,'numbers',me.id,'contacts',p),{alias:al});m.remove()}
+    catch(e){console.error(e);m.querySelector('#rne').textContent='No se pudo guardar.'}
+  };
+}
+function deleteContact(){
+  const p=cur;
+  if(!confirm('¿Eliminar este contacto? El chat va a seguir viéndose con su número.'))return;
+  deleteDoc(doc(db,'numbers',me.id,'contacts',p)).catch(e=>console.error(e));
+}
+function clearChat(){
+  if(!cur)return;
+  if(!confirm('¿Vaciar este chat? Los mensajes desaparecen solo para vos.'))return;
+  setDoc(doc(db,'numbers',me.id,'chats',cur),{clearedAt:serverTimestamp()},{merge:true}).catch(e=>console.error(e));
+}
+async function groupInfo(){
+  const g=groups[cur];if(!g)return;
+  await Promise.all(g.members.map(loadPeer));
+  modal(`<h3>${esc(g.name)}</h3><small>${g.members.length} miembros</small><div class="clist">${g.members.map(id=>`<div class="citem">${av(id,nameOf(id),peers[id]?.photo)}<span>${esc(id===me.id?'Vos':nameOf(id))}</span></div>`).join('')}</div>`);
+}
+function addStatus(){
+  const m=modal(`<h3>Nueva actualización</h3><input type="file" id="sfile" accept="image/*,video/*"><input id="scap" maxlength="120" placeholder="Agregar un mensaje (opcional)"><p class="err" id="serr"></p><button class="btn" id="spost">Publicar</button>`);
+  m.querySelector('#spost').onclick=async()=>{
+    const f=m.querySelector('#sfile').files[0],err=m.querySelector('#serr');
+    if(!f){err.textContent='Elegí una foto o video.';return}
+    try{
+      let type,media;
+      if(f.type.startsWith('image/')){type='image';media=await toMedia(f,1080,.75)}
+      else if(f.type.startsWith('video/')){if(f.size>900*1024){err.textContent='El video es muy pesado.';return}type='video';media=await fileToDataURL(f)}
+      else{err.textContent='Elegí una imagen o un video.';return}
+      await addDoc(collection(db,'numbers',me.id,'statuses'),{type,media,caption:m.querySelector('#scap').value.trim(),at:serverTimestamp(),viewedBy:[]});
+      m.remove();
+    }catch(e){console.error(e);err.textContent='No se pudo publicar.'}
+  };
+}
+function viewStatus(id){
+  const list=statuses[id]||[];if(!list.length)return;
+  let i=0,timer=null;
+  const ov=document.createElement('div');ov.className='sv';document.body.appendChild(ov);
+  function draw(){
+    const s=list[i];
+    if(!s){close();return}
+    if(id!==me.id&&!(s.viewedBy||[]).includes(me.id))updateDoc(doc(db,'numbers',id,'statuses',s.id),{viewedBy:arrayUnion(me.id)}).catch(()=>{});
+    ov.innerHTML=`<div class="bars">${list.map((_,k)=>`<i><b id="bar${k}" style="width:${k<i?'100%':'0%'}"></b></i>`).join('')}</div>
+<header><div id="sav"></div><div class="hn"><b>${esc(id===me.id?'Mi estado':nameOf(id))}</b><small>${hm(s.at)}</small></div><button data-close aria-label="Cerrar">✕</button></header>
+<div class="stage"><div class="nav l" data-nav="-1"></div><div class="nav r" data-nav="1"></div>${s.type==='image'?`<img src="${s.media}">`:`<video src="${s.media}" autoplay playsinline></video>`}</div>
+${s.caption?`<div class="cap">${esc(s.caption)}</div>`:''}`;
+    ov.querySelector('#sav').innerHTML=av(id,nameOf(id),peers[id]?.photo);
+    ov.querySelector('[data-close]').onclick=close;
+    ov.querySelectorAll('[data-nav]').forEach(n=>n.onclick=()=>step(+n.dataset.nav));
+    clearTimeout(timer);
+    const dur=s.type==='video'?15000:5000,bar=ov.querySelector('#bar'+i);
+    if(bar){bar.style.transition=`width ${dur}ms linear`;requestAnimationFrame(()=>bar.style.width='100%')}
+    timer=setTimeout(()=>step(1),dur);
+  }
+  function step(d){i+=d;if(i<0)i=0;if(i>=list.length){close();return}draw()}
+  function close(){clearTimeout(timer);ov.remove()}
+  ov.addEventListener('mousedown',e=>{if(e.target===ov)close()});
+  draw();
 }
 
 function perfil(){
@@ -285,10 +559,35 @@ document.addEventListener('click',e=>{
   const wcl=$('wcl');if(wcl&&!wcl.hidden&&!e.target.closest('#wcl')&&!e.target.closest('#wc'))wcl.hidden=true;
   const t=e.target.closest('[data-a]');if(!t)return;
   const a=t.dataset.a;
-  if(a==='new')newChat();
+  if(a==='addmenu')menuAt(t,[{label:'Nuevo chat',fn:newChat},{label:'Nuevo grupo',fn:newGroup}]);
   else if(a==='prof')perfil();
   else if(a==='back'){$('ap').classList.remove('open');cur=null;unsub&&unsub();$('chat').hidden=true;$('empty').hidden=false;renderList()}
-  else if(a==='open'){t.closest('.ov')?.remove();open(t.dataset.p)}
+  else if(a==='open'){t.closest('.ov')?.remove();open(t.dataset.p,t.dataset.g==='1')}
+  else if(a==='tab'){
+    view=t.dataset.v;$('tbc').classList.toggle('on',view==='chats');$('tbs').classList.toggle('on',view==='status');renderList();
+  }
+  else if(a==='mystatus'){
+    const mine=statuses[me.id]||[],items=[];
+    if(mine.length)items.push({label:'Ver mi estado',fn:()=>viewStatus(me.id)});
+    items.push({label:'Agregar actualización',fn:addStatus});
+    menuAt(t,items);
+  }
+  else if(a==='viewstatus')viewStatus(t.dataset.p);
+  else if(a==='chatmenu'){
+    if(!cur)return;
+    const items=[];
+    if(curType==='dm'){
+      items.push({label:'✎ Cambiar nombre del contacto',fn:renameContact});
+      if(contacts[cur])items.push({label:'🗑 Eliminar contacto',fn:deleteContact,danger:true});
+    }else items.push({label:'ℹ Info del grupo',fn:groupInfo});
+    items.push({label:'🧹 Vaciar chat',fn:clearChat});
+    menuAt(t,items);
+  }
+  else if(a==='attach')$('fatt').click();
+  else if(a==='pin'||a==='unpin'){
+    const id=t.dataset.id,v=a==='pin'?t.dataset.v==='1':false;
+    updateDoc(doc(db,'chats',curCid(),'msgs',id),{pinned:v}).catch(err=>console.error(err));
+  }
 });
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('.it[data-a]'))e.target.click()});
 </script>
